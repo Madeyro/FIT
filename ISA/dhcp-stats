@@ -1,0 +1,133 @@
+#!/usr/bin/env python
+u'''
+DHCP monitoring
+
+Author: Maros Kopec, xkopec44@stud.fit.vutbr.cz
+Created: 20. Oktober 2016
+File: dhcp-stats
+'''
+
+from __future__ import absolute_import
+import curses
+import threading
+import signal
+import sys
+from os import _exit
+import pcapy
+from dhcp_monitor import parse_args, parse_network, parse_packet, get_status
+
+
+def main():
+    u'''Main func'''
+    # parse the arguments and calculate networks
+    addresses = parse_args()
+    parse_network(addresses)
+
+    # arguments are parsed so we know everything is OK in IPs
+    # time to check option -i
+    interfaces = pcapy.findalldevs()        # find all interfaces
+    interface = sys.argv[2]                 # get specified interface
+    if interface not in interfaces:         # check if interface exists
+        print u"Interface \"" + interface + u"\" does not exists."
+        print u"Please check your configuration and try again with diferent interface."
+        _exit(1)
+
+    # start sniffing packets
+    cap = pcapy.open_live(interface, 1500, 1, 0)
+    # set filter
+    cap.setfilter("udp port 67 or udp port 68")
+
+    # dictionary for all leased IPs
+    leased_ip = {}
+
+    # # All code involving ncourses is written according to
+    # # video of a PyCon 2013 talk on controlling terminals using curses or Urwid.
+    # # aviable on: https://youtu.be/eN1eZtjLEnU
+    # # (Accessed 22 October 2016)
+
+    # initialize courses
+    stdscr = curses.initscr()
+    curses.noecho()
+    curses.cbreak()
+    curses.curs_set(0)
+
+    # add title and bottom "menu"
+    stdscr.addstr("DHCP Stats", curses.A_REVERSE)
+    stdscr.chgat(-1, curses.A_REVERSE)
+    stdscr.addstr(curses.LINES-1, 0, u"Use CTRL+C to stop this program")
+
+    # create window
+    window = curses.newwin(curses.LINES-2, curses.COLS, 1, 0)
+
+    # create sub-window
+    status_window = window.subwin(curses.LINES-6, curses.COLS-4, 3, 2)
+    # insert table header
+    status_window.addstr(u"IP Prefix\t\tMax hosts\tAllocated addresses\tUtilization\n",
+                         curses.A_UNDERLINE)
+
+    # add status to status window
+    status_window.addstr(2, 0, get_status(addresses))
+
+    # refresh output
+    stdscr.noutrefresh()
+    window.noutrefresh()
+    curses.doupdate()
+
+    # main loop to keep program running
+    while True:
+
+        # Read packets -- header contains information about the data from pcap,
+        # payload is the actual packet as a string
+        (header, payload) = cap.next()
+
+        # parse informations from packet
+        parse_packet(payload, leased_ip, addresses)
+
+        # add status to status window
+        status_window.refresh()
+        status_window.addstr(2, 0, get_status(addresses))
+
+        # ncourses magic
+        stdscr.noutrefresh()
+        window.noutrefresh()
+        status_window.noutrefresh()
+        curses.doupdate()
+
+        # next packet
+    # end of main loop
+
+    # restore the terminal settings
+    curses.nocbreak()
+    curses.echo()
+    curses.curs_set(1)
+    # restore the terminal to default state
+    curses.endwin()
+# def main
+
+###################################################################################################
+# it is needed to run program in theread,
+# because when pcapy waits for another packet,
+# we can not exit program.
+try:
+    THREAD = threading.Thread(target=main, args=())
+    THREAD.daemon = True
+    THREAD.start()
+
+    # this work-around was created in cooperation with Martin Kopec, xkopec42
+    # this loop allows us to catch SIGINT and kill thread
+    while True:
+        try:
+            signal.pause()
+        except:
+            # catching SIGINT
+            sys.exit(0)
+finally:
+    # restore the terminal settings
+    curses.nocbreak()
+    curses.echo()
+    curses.curs_set(1)
+    # restore the terminal to default state
+    curses.endwin()
+    sys.exit(0)
+
+# kill -9 `ps -ef | grep isa.py | grep -v grep | awk '{print $2}'`

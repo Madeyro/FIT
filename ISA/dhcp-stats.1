@@ -1,0 +1,41 @@
+.TH DHCP-STATS 1 "November 2016" GNU
+.SH NAME
+dhcp\-stats \- monitors the utilization of DHCP pools
+.SH SYNOPSIS
+.B dhcp-stats
+-i \fIINTERFACE\fR
+\fIIP\-PREFIX\fR
+[\fIIP\-PREFIX\fR [ ... ]]
+.SH DESCRIPTION
+.B dhcp-stats
+monitors the utilization in both numbers and percentages of specified networks,
+which represents DHCP pools. The specified pools can overlap and it is possible to specify
+device's IP address instead of network IP address.
+.SH OPTIONS
+.TP
+\-i\fR \fIINTERFACE\fR
+Set on which interface will be packets monitored.
+There is no default value.
+.TP
+\fIIP\-PREFIX\fR [\fIIP\-PREFIX\fR [ ... ]]
+Specify network address. Use format: network_address/prefix.
+If more then one is secified, separate each of them with white space.
+.SH BUGS
+.TP
+\fBLimited number of networks\fR
+It is possible to use max 15 networks when using standard sized console, which is 80x24.
+If there must be specified more then 15 networks, the terminal have to be resized.
+Be aware that it has to be done before running dhcp-stats.
+.TP
+\fBResizing and minimizing terminal\fR
+When the terminal is either resized or minimized, the output disapear.
+You can still close dhcp-stats using key-shortcut CTRL+C.
+.TP
+\fBStatically configured devices\fR
+The dhcp-stats can not recognize IP addresses which were configured manually without DHCP.
+.SH EXAMPLE
+$ \fBdhcp\-stats \-i eth0 192.168.0.1/24 10.0.0.0/16\fR
+.PP
+IP Prefix        Max hosts    Allocated addresses    Utilization\[newline]
+192.168.0.1/24      254               25                     9.84%\[newline]
+10.0.0.0/16        65534               1871                       2.85%

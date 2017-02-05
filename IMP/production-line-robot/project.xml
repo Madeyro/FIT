@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project outputprefix="ucosii">
+
+    <!--  Project description -->
+    <name>Production line robot</name>
+    <author>Maroš Kopec</author>
+    <authoremail>xkopec44@fit.vutbr.cz</authoremail>
+    <revision>20161213</revision>
+    <description>
+    Riadenie robota na výrobnej linke pod operačným systémom uC/OS-II na platforme FITKit 2.0.
+    </description>
+
+    <!--  MCU part -->
+    <mcu>
+        <include>apps/demo_msp/production-line-robot/src/Micrium/Software/uCOS-II/Ports/MSP430/MSPGCC/MSP430/msp_specific.xml</include>
+        <include>apps/demo_msp/production-line-robot/src/Micrium/Software/uCOS-II/Source/os_source.xml</include>
+
+        <include>mcu/libs/keyboard/package.xml</include>
+        <include>mcu/libs/lcd/package.xml</include>
+
+        <headerfile>src/app/includes.h</headerfile>
+        <headerfile>src/app/app_cfg.h</headerfile>
+        <file>src/app/app.c</file>
+    </mcu>
+
+    <!--  FPGA part -->
+    <fpga>
+        <include>fpga/ctrls/lcd/package.xml</include>
+        <include>fpga/ctrls/keyboard/package.xml</include>
+        <file>top_level.vhd</file>
+    </fpga>
+
+</project>

@@ -1,0 +1,212 @@
+#!/bin/sh
+# Kopec Maros
+# xkopec44@stud.fit.vutbr.cz
+
+export LC_ALL=POSIX
+
+add_log () { 
+       time_stamp=`date --rfc-3339=date 2> /dev/zero`
+       if [ "$?" -ne 0  ]; then
+            time_stamp=`date +"%Y-%m-%d" 2> /dev/zero`
+       fi
+       echo "$time_stamp:$dir_path:$file" >> "$WEDI_RC"
+   }
+
+# Check if variable WEDI_RC is set
+# WEDI_RC stores informations about starting itself
+if [ -z "$WEDI_RC" ]; then 
+	echo "WEDI_RC 	is not set" >&2
+	exit 1
+fi
+touch "$WEDI_RC" 2>/dev/null
+if [ "$?" -ne 0 ]; then
+    echo "Can not make wedi_rc log file" >&2
+    exit 1
+fi
+if [ ! -w "$WEDI_RC" ]; then
+    echo "Do not have permission to write to wedi_rc" >&2
+    exit 1
+fi
+
+
+# Check if variable EDITOR is set
+# EDITOR stores what text editor should script use
+# If EDITOR is not set, check variable VISUAL
+# VISUAL is equivalent to EDITOR 
+if [ -n "$EDITOR" ]; then
+    editor_option="$EDITOR"
+else
+	if [ -n "$VISUAL"  ]; then
+		editor_option="$VISUAL"
+    else
+        echo "Nor EDITOR nor VISUAL is set" >&2
+	fi	
+fi
+
+
+# Working with arguments
+while getopts :m:l:b:a: args ; do 
+	case "$args" in
+		m) 	option="$args"
+			dir_path=`readlink -f $OPTARG`
+            ;;
+	    l)	option="$args"
+			dir_path=`readlink -f $OPTARG`
+            ;;
+		b)	option="$args"
+			date_param="$OPTARG"
+			if [ "$#" -eq 2 ]; then
+				dir_path=`readlink -f $PWD`
+			else
+				dir_path=`readlink -f $3`
+			fi
+            ;;
+		a) 	option="$args"
+			date_param="$OPTARG"
+			if [ "$#" -eq 2 ]; then
+				dir_path=`readlink -f $PWD`
+			else
+				dir_path=`readlink -f $3`
+			fi
+            ;;
+		:) 	if [ "b" = "$OPTARG" ]; then
+				echo "Error" >&2
+				exit 1
+			elif [ "a" = "$OPTARG" ]; then
+				echo "Error" >&2
+				exit 1
+			else
+				option="$OPTARG"
+				dir_path=`readlink -f $PWD`
+			fi
+            ;;
+	   \?)	echo "Unexpected arguments" >&2
+            exit 1
+            ;;
+	esac
+done
+
+# If no arguments are given only path/file
+if [ -z ${option} ]; then
+    if [ "$#" -eq 0 ]; then
+        dir_path=`readlink -f $PWD`
+        option="dir"
+    elif [ "$#" -eq 1 ]; then
+        stack=`readlink -f $PWD` 
+        if [ ! -d "$1" ]; then
+            file=`echo "$1" | awk -F "/" '{print $NF}'`
+            dir_path=`echo "$1" | awk -F "/" '{OFS = "/"; $NF=""; print}'`
+            if [ "$dir_path" = "" ]; then
+                dir_path=`readlink -f $PWD`
+            else
+                dir_path=`readlink -f $dir_path 2>/dev/null`
+            fi
+            option="file"
+        else
+            option="dir"
+            dir_path=`readlink -f $1`
+        fi
+    elif [ "$#" -ge 2 ]; then
+        echo "Invalid input. Too many arguments" >&2
+        exit 1
+    fi
+fi
+
+if [ -z ${dir_path} ]; then
+    echo "Invalid folder/path" >&2
+    exit 1
+fi
+
+# Check date format YYYY-MM-DD
+if [ -n "$date_param" ]; then
+    if ! echo $date_param | egrep -q '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+        echo "Date is in wrong format. Please use YYYY-MM-DD format." >&2
+        exit 1
+    else
+        date_param=`echo "$date_param" | tr -d '-'`
+    fi
+fi
+
+# Include only files from log
+# grep -o '[^/ ]*$' log
+
+case "$option" in
+    l)  list=`cat "$WEDI_RC" | grep "$dir_path:" | cut -d':' -f3`
+        if [ `echo "$list" | wc -l` -eq 1 ]; then
+            ls -1a "$dir_path" | grep -E "$list"
+        else
+            ls -1a "$dir_path" | grep -E \'^`echo "$list" | tr '\n' '|'`$\'
+        fi
+        ;;
+    m)  most_used=`cat "$WEDI_RC" | grep "$dir_path:" | cut -d':' -f3 | sort | uniq -c | sort -rg | grep -o -E '[^ ]+[^0-9 ]+.*'`
+        for line in $most_used; do
+            file=`ls -1a "$dir_path" | grep -E "$line"`
+            if [ -n "$file" ]; then
+                break
+            fi
+        done
+        if [ -z "$file" ]; then
+       	    echo "Nothing edited in this folder yet." >&2
+       	    exit 1
+        fi
+        "$editor_option" "$dir_path"/"$file"
+	add_log
+        if [ "$?" -ne 0 ]; then
+            echo "Invalid file" >&2
+            exit "$?"
+        fi
+        ;;
+   a)   dates=`cat "$WEDI_RC" | cut -d':' -f1 | tr -d '-' | sort -gu`
+        matched=$(for line in $dates; do
+            if [ $date_param -le $line ]; then
+                cat "$WEDI_RC" | grep "$dir_path:" | grep `echo $line | sed 's/./-&/5' | sed 's/./-&/8'` | cut -d':' -f3 | sort -u 
+            fi
+        done | sort -u)
+        echo "$matched" | while read word; do
+            ls -1a "$dir_path" | grep -E ^"$word"$
+            if [ -n "$file" ]; then
+                break
+            fi
+        done
+        ;;
+   b)   dates=`cat "$WEDI_RC" | cut -d':' -f1 | tr -d '-' | sort -gu`
+        matched=$(for line in $dates; do
+            if [ $date_param -ge $line ]; then
+                cat "$WEDI_RC" | grep "$dir_path:" | grep `echo $line | sed 's/./-&/5' | sed 's/./-&/8'` | cut -d':' -f3 | sort -u 
+            fi
+        done | sort -u)
+        echo "$matched" | while read word; do
+            ls -1a "$dir_path" | grep -E ^"$word"$
+            if [ -n "$file" ]; then
+                break
+            fi
+        done
+        ;;
+   file) "$editor_option" "$dir_path"/"$file" 
+	 add_log
+         if [ "$?" -ne 0 ]; then
+            echo "Invalid file" >&2
+            exit "$?"
+         fi
+
+         ;;
+   dir)  last_used=`cat "$WEDI_RC" | grep "$dir_path:" | cut -d':' -f3 | uniq | sed '1!G;h;$!d'`
+         for line in $last_used; do
+            file=`ls -1a "$dir_path" | grep -E "$line"`
+                if [ -n "$file" ]; then
+                    break
+                fi
+            done
+            if [ -z "$file" ]; then
+      	        echo "Nothing edited in this folder yet." >&2
+      		    exit 1
+      	    fi
+         "$editor_option" "$dir_path"/"$file"
+	 add_log
+         if [ "$?" -ne 0 ]; then
+            echo "Invalid file" >&2
+            exit "$?"
+         fi
+
+         ;;
+esac
