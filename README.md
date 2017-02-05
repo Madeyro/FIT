@@ -4,18 +4,18 @@
 >2014-2017
 
 ## 1st semester
----
+
 ### IZP - Introduction to Programming Systems
 - Crossing through the maze constisting from triangular cells in C. ``Obtained points: 9/10``
 
 
 ## 2nd semester
----
+
 ### IOS - Operating Systems
 - wedi - Wrapper for the Vi text editor in Bash. ``Obtained points: 15/15``
 
 ## 4th semester
----
+
 ### IPK - Computer Communications and Networks
 - webclient - Simple web client in C++. ``Obtained points: 11/15``
 
@@ -24,7 +24,7 @@
 - proj2 - Syntax highlighting in Python 3.4.3 accoring to the specified regular expression (own form of regular expressions). ``Obtained points: 9/10``
 
 ## 5th semester
----
+
 ### ISA - Network Applications and Network Administration
 - dhcp-stats - DHCP utilization monitoring using libpcap in Python 2.7. ``Obtained points: 10.5/15``
 
